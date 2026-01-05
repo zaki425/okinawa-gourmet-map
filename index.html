@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>沖縄グルメMAP（試作）</title>
+
+  <!-- Leaflet -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+  <!-- CSVパース（Papa Parse） -->
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+
+  <style>
+    body { margin:0; font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans JP", sans-serif; }
+    #map { height: 100vh; }
+    .btn { display:inline-block; padding:8px 10px; border:1px solid #ccc; border-radius:8px; text-decoration:none; margin:6px 6px 0 0; }
+    .small { font-size: 12px; color:#666; }
+  </style>
+</head>
+<body>
+  <div id="map"></div>
+
+  <script>
+    // 1) https://docs.google.com/spreadsheets/d/1sPTVEfafmKMUvxJNgJqIhwObmcNoOWr7FwCyHccCf98/edit?gid=0#gid=0
+    const CSV_URL = "PASTE_YOUR_CSV_URL_HERE";
+
+    // 2) 地図初期位置（那覇付近）
+    const map = L.map('map').setView([26.2124, 127.6809], 10);
+
+    // OpenStreetMap タイル（利用ポリシーに留意） :contentReference[oaicite:5]{index=5}
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+      attribution: '&copy; OpenStreetMap contributors'
+    }).addTo(map);
+
+    let userMarker = null;
+
+    function getCurrentPosition() {
+      return new Promise((resolve, reject) => {
+        if (!navigator.geolocation) return reject(new Error("このブラウザは位置情報に未対応です"));
+        navigator.geolocation.getCurrentPosition(
+          pos => resolve([pos.coords.latitude, pos.coords.longitude]),
+          err => reject(err),
+          { enableHighAccuracy: true, timeout: 8000, maximumAge: 30000 }
+        );
+      });
+    }
+
+    async function ensureUserLocationOnMap() {
+      const latlng = await getCurrentPosition();
+      if (!userMarker) {
+        userMarker = L.marker(latlng).addTo(map).bindPopup("現在地").openPopup();
+      } else {
+        userMarker.setLatLng(latlng);
+      }
+      return latlng;
+    }
+
+    function openGoogleDirections(originLatLng, destLatLng) {
+      const [olat, olng] = originLatLng;
+      const [dlat, dlng] = destLatLng;
+
+      // Google公式の Maps URLs（dir / api=1） :contentReference[oaicite:6]{index=6}
+      const url =
+        "https://www.google.com/maps/dir/?api=1" +
+        `&origin=${encodeURIComponent(olat + "," + olng)}` +
+        `&destination=${encodeURIComponent(dlat + "," + dlng)}` +
+        "&travelmode=driving";
+
+      window.open(url, "_blank");
+    }
+
+    function safeNum(v) {
+      const n = Number(v);
+      return Number.isFinite(n) ? n : null;
+    }
+
+    function loadCsvAndRender() {
+      // キャッシュ対策（更新反映を早くする）
+      const url = CSV_URL + (CSV_URL.includes("?") ? "&" : "?") + "_=" + Date.now();
+
+      Papa.parse(url, {
+        download: true,
+        header: true,
+        skipEmptyLines: true,
+        complete: (results) => {
+          const rows = results.data || [];
+
+          rows.forEach(row => {
+            const status = (row.status || "").trim().toLowerCase();
+            if (status && status !== "active") return;
+
+            const lat = safeNum(row.lat);
+            const lng = safeNum(row.lng);
+            if (lat === null || lng === null) return;
+
+            const name = (row.name || "").trim() || "名称未設定";
+            const address = (row.address || "").trim();
+            const articleUrl = (row.article_url || "").trim();
+
+            const marker = L.marker([lat, lng]).addTo(map);
+
+            // popup内ボタン：記事 / 現在地→経路
+            const div = document.createElement("div");
+            const title = document.createElement("div");
+            title.innerHTML = `<strong>${name}</strong><div class="small">${address}</div>`;
+            div.appendChild(title);
+
+            if (articleUrl) {
+              const a = document.createElement("a");
+              a.className = "btn";
+              a.href = articleUrl;
+              a.target = "_blank";
+              a.rel = "noopener";
+              a.textContent = "記事を見る";
+              div.appendChild(a);
+            }
+
+            const b = document.createElement("a");
+            b.className = "btn";
+            b.href = "#";
+            b.textContent = "現在地から経路";
+            b.addEventListener("click", async (e) => {
+              e.preventDefault();
+              try {
+                const origin = await ensureUserLocationOnMap();
+                openGoogleDirections(origin, [lat, lng]);
+              } catch (err) {
+                alert("位置情報が取得できませんでした。ブラウザの位置情報許可をご確認ください。");
+              }
+            });
+            div.appendChild(b);
+
+            marker.bindPopup(div);
+          });
+        },
+        error: () => alert("CSVの読み込みに失敗しました。CSV_URLを確認してください。")
+      });
+    }
+
+    loadCsvAndRender();
+  </script>
+</body>
+</html>
