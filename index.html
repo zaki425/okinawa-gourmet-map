@@ -24,12 +24,12 @@
 
   <script>
     // 1) https://docs.google.com/spreadsheets/d/e/2PACX-1vRVreCV1xOdZxTpGVS4qVRXnsF3KBeiM7otC6yE7hQWpkkz2l5YNbriQlRNtHan6hRKKwz65hvpnrUR/pub?output=csv
-    const CSV_URL = "PASTE_YOUR_CSV_URL_HERE";
+    const CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRVreCV1xOdZxTpGVS4qVRXnsF3KBeiM7otC6yE7hQWpkkz2l5YNbriQlRNtHan6hRKKwz65hvpnrUR/pub?output=csv";
 
     // 2) 地図初期位置（那覇付近）
     const map = L.map('map').setView([26.2124, 127.6809], 10);
 
-    // OpenStreetMap タイル（利用ポリシーに留意） :contentReference[oaicite:5]{index=5}
+    // OpenStreetMap タイル（利用ポリシーに留意）
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 19,
       attribution: '&copy; OpenStreetMap contributors'
@@ -62,7 +62,7 @@
       const [olat, olng] = originLatLng;
       const [dlat, dlng] = destLatLng;
 
-      // Google公式の Maps URLs（dir / api=1） :contentReference[oaicite:6]{index=6}
+      // Google公式の Maps URLs（dir / api=1）
       const url =
         "https://www.google.com/maps/dir/?api=1" +
         `&origin=${encodeURIComponent(olat + "," + olng)}` +
