@@ -17,20 +17,21 @@
     #map { height: 100vh; }
     .btn { display:inline-block; padding:8px 10px; border:1px solid #ccc; border-radius:8px; text-decoration:none; margin:6px 6px 0 0; }
     .small { font-size: 12px; color:#666; }
+    .popup-img { width:100%; max-width:260px; height:auto; border-radius:10px; display:block; margin:6px 0; }
   </style>
 </head>
 <body>
   <div id="map"></div>
 
   <script>
-    // 1) https://docs.google.com/spreadsheets/d/e/2PACX-1vRVreCV1xOdZxTpGVS4qVRXnsF3KBeiM7otC6yE7hQWpkkz2l5YNbriQlRNtHan6hRKKwz65hvpnrUR/pub?output=csv
+    // スプレッドシート（CSV公開URL）
     const CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRVreCV1xOdZxTpGVS4qVRXnsF3KBeiM7otC6yE7hQWpkkz2l5YNbriQlRNtHan6hRKKwz65hvpnrUR/pub?output=csv";
 
-    // 2) 地図初期位置（那覇付近）
+    // 地図初期化（那覇付近）
     const map = L.map('map').setView([26.2124, 127.6809], 10);
 
-    // ====== ここから「方法A：沖縄の範囲に固定」を追加 ======
-    // 沖縄県（本島＋離島）をざっくり覆う範囲（西:与那国 東:南大東 くらい）
+    // ====== 沖縄県（本島＋離島）に表示範囲を固定（方法A） ======
+    // 西:与那国〜 東:南大東 くらいをざっくり覆う範囲
     const OKINAWA_BOUNDS = L.latLngBounds(
       [24.0, 122.5],  // 南西（緯度, 経度）
       [28.5, 131.8]   // 北東
@@ -42,15 +43,17 @@
     // 範囲外にパンできないようにする（少し余白付き）
     map.setMaxBounds(OKINAWA_BOUNDS.pad(0.05));
 
-    // ズームアウトしすぎ・ズームインしすぎを制御（好みで調整）
+    // ズームアウトしすぎを防ぐ（好みで調整）
     map.setMinZoom(7);
     map.setMaxZoom(19);
-    // ====== ここまで追加 ======
+    // ============================================================
 
-    // OpenStreetMap タイル（利用ポリシーに留意）
+    // OpenStreetMap タイル
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 19,
-      attribution: '&copy; OpenStreetMap contributors'
+      attribution: '&copy; OpenStreetMap contributors',
+      // さらに「沖縄専用感」を出したい場合は有効化（横の繰り返しを抑える）
+      // noWrap: true
     }).addTo(map);
 
     let userMarker = null;
@@ -80,7 +83,6 @@
       const [olat, olng] = originLatLng;
       const [dlat, dlng] = destLatLng;
 
-      // Google公式の Maps URLs（dir / api=1）
       const url =
         "https://www.google.com/maps/dir/?api=1" +
         `&origin=${encodeURIComponent(olat + "," + olng)}` +
@@ -118,14 +120,29 @@
             const address = (row.address || "").trim();
             const articleUrl = (row.article_url || "").trim();
 
+            // ★ 追加：画像URL（シートに image_url 列を作って入れる）
+            const imageUrl = (row.image_url || "").trim();
+
             const marker = L.marker([lat, lng]).addTo(map);
 
-            // popup内ボタン：記事 / 現在地→経路
+            // popup作成
             const div = document.createElement("div");
+
+            // ★ 追加：画像表示（あれば表示）
+            if (imageUrl) {
+              const img = document.createElement("img");
+              img.src = imageUrl;
+              img.alt = name;
+              img.loading = "lazy";
+              img.className = "popup-img";
+              div.appendChild(img);
+            }
+
             const title = document.createElement("div");
             title.innerHTML = `<strong>${name}</strong><div class="small">${address}</div>`;
             div.appendChild(title);
 
+            // 記事リンク
             if (articleUrl) {
               const a = document.createElement("a");
               a.className = "btn";
@@ -136,6 +153,7 @@
               div.appendChild(a);
             }
 
+            // 現在地→経路
             const b = document.createElement("a");
             b.className = "btn";
             b.href = "#";
