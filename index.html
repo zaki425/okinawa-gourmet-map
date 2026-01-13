@@ -29,6 +29,24 @@
     // 2) 地図初期位置（那覇付近）
     const map = L.map('map').setView([26.2124, 127.6809], 10);
 
+    // ====== ここから「方法A：沖縄の範囲に固定」を追加 ======
+    // 沖縄県（本島＋離島）をざっくり覆う範囲（西:与那国 東:南大東 くらい）
+    const OKINAWA_BOUNDS = L.latLngBounds(
+      [24.0, 122.5],  // 南西（緯度, 経度）
+      [28.5, 131.8]   // 北東
+    );
+
+    // 初期表示を沖縄範囲にフィット（setViewよりこちらが優先されます）
+    map.fitBounds(OKINAWA_BOUNDS);
+
+    // 範囲外にパンできないようにする（少し余白付き）
+    map.setMaxBounds(OKINAWA_BOUNDS.pad(0.05));
+
+    // ズームアウトしすぎ・ズームインしすぎを制御（好みで調整）
+    map.setMinZoom(7);
+    map.setMaxZoom(19);
+    // ====== ここまで追加 ======
+
     // OpenStreetMap タイル（利用ポリシーに留意）
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 19,
