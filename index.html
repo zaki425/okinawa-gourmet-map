@@ -10,44 +10,86 @@
   <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
 
   <style>
-    body { margin:0; font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans JP", sans-serif; }
+    body { margin:0; font-family: "Helvetica Neue", Arial, "Hiragino Kaku Gothic ProN", "Hiragino Sans", Meiryo, sans-serif; }
     #map { height: 100vh; width: 100%; }
     
-    /* ポップアップ内のスタイル */
-    .popup-content { font-size: 14px; line-height: 1.4; }
-    .popup-img { width:100%; max-width:260px; height:auto; border-radius:8px; display:block; margin:8px 0; object-fit: cover; }
-    .badge { display: inline-block; padding: 2px 6px; background-color: #ff9800; color: white; border-radius: 4px; font-size: 11px; margin-bottom: 4px; }
+    /* ポップアップのデザインを少し丸く、可愛く */
+    .leaflet-popup-content-wrapper { border-radius: 12px; box-shadow: 0 3px 10px rgba(0,0,0,0.2); }
+    .popup-content { font-size: 14px; line-height: 1.5; color: #444; }
+    
+    /* 画像のスタイル */
+    .popup-img { width:100%; height:150px; border-radius: 8px; object-fit: cover; display:block; margin:8px 0; background-color: #eee; }
+    
+    /* カテゴリバッジ */
+    .badge { display: inline-block; padding: 3px 8px; background-color: #ffab91; color: #fff; border-radius: 10px; font-size: 11px; margin-bottom: 5px; font-weight: bold; letter-spacing: 0.5px; }
+    
+    /* ボタンのデザイン */
     .btn { 
-      display:inline-block; box-sizing: border-box; width: 100%; text-align: center;
-      padding:8px 10px; border:1px solid #ccc; background-color: #f9f9f9;
-      border-radius:6px; text-decoration:none; margin-top: 6px; color: #333; font-weight: bold;
+      display:block; box-sizing: border-box; width: 100%; text-align: center;
+      padding:10px; border:1px solid #ddd; background-color: #fff;
+      border-radius:20px; text-decoration:none; margin-top: 8px; color: #555; font-size: 13px;
+      transition: background 0.2s;
     }
-    .btn-blue { background-color: #007bff; color: white; border: none; }
-    .small { font-size: 12px; color:#666; margin-top: 2px; }
+    .btn:hover { background-color: #f5f5f5; }
+    .btn-blue { background-color: #4fc3f7; color: white; border: none; font-weight: bold; }
+    .btn-blue:hover { background-color: #29b6f6; }
+    
+    .small { font-size: 11px; color:#888; margin-top: 2px; }
+    
+    /* お店名のスタイル */
+    .shop-name { font-size: 16px; color: #333; margin-bottom: 2px; display: block; }
   </style>
 </head>
 <body>
   <div id="map"></div>
 
   <script>
-    // 先ほど作成いただいたCSVのURLを設定しています
+    // ▼▼▼ CSV URL ▼▼▼
     const CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRVreCV1xOdZxTpGVS4qVRXnsF3KBeiM7otC6yE7hQWpkkz2l5YNbriQlRNtHan6hRKKwz65hvpnrUR/pub?output=csv";
 
-    // 地図初期化（那覇中心）
-    const map = L.map('map', { tap: false }).setView([26.2124, 127.6809], 10);
+    // --- 1. 地図のタイル（絵柄）を定義 ---
+    
+    // A. パステル（かわいい・デフォルト）
+    const cartoVoyager = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
+      maxZoom: 19
+    });
 
-    // 沖縄エリアの境界定義（パン移動の制限用）
-    const OKINAWA_BOUNDS = L.latLngBounds([24.0, 122.5], [28.5, 131.8]);
+    // B. シンプル（白黒・シック）
+    const cartoPositron = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
+      maxZoom: 19
+    });
+
+    // C. 日本標準（国土地理院・淡色）
+    const gsiPale = L.tileLayer('https://cyberjapandata.gsi.go.jp/xyz/pale/{z}/{x}/{y}.png', {
+      attribution: '<a href="https://maps.gsi.go.jp/development/ichiran.html" target="_blank">国土地理院</a>',
+      maxZoom: 18
+    });
+
+    // --- 2. 地図の初期化 ---
+    // ここで layers: [cartoVoyager] を指定しているので、最初は「パステル」が表示されます
+    const map = L.map('map', {
+      center: [26.2124, 127.6809],
+      zoom: 10,
+      layers: [cartoVoyager], 
+      tap: false
+    });
+
+    // --- 3. レイヤー切り替えコントロールを追加（右上） ---
+    const baseMaps = {
+      "🧡 パステル (かわいい)": cartoVoyager,
+      "🤍 シンプル (シック)": cartoPositron,
+      "💚 日本標準 (見やすい)": gsiPale
+    };
+    L.control.layers(baseMaps).addTo(map);
+
+    // --- 4. 沖縄エリア制限 ---
+    const OKINAWA_BOUNDS = L.latLngBounds([24.0, 122.3], [27.2, 131.4]);
     map.fitBounds(OKINAWA_BOUNDS);
-    map.setMaxBounds(OKINAWA_BOUNDS.pad(0.1));
-    map.setMinZoom(7);
+    map.setMaxBounds(OKINAWA_BOUNDS);
+    map.setMinZoom(8);
     map.setMaxZoom(19);
-
-    // OpenStreetMap タイル読み込み
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      maxZoom: 19,
-      attribution: '© OpenStreetMap contributors'
-    }).addTo(map);
 
     let userMarker = null;
 
@@ -78,16 +120,14 @@
       }
     }
 
-    // Googleマップ経路検索を開く（公式フォーマット）
+    // Googleマップ経路検索
     function openGoogleDirections(originLatLng, destLatLng) {
       const [olat, olng] = originLatLng;
       const [dlat, dlng] = destLatLng;
-      
       const url = `https://www.google.com/maps/dir/?api=1&origin=${olat},${olng}&destination=${dlat},${dlng}&travelmode=driving`;
       window.open(url, "_blank");
     }
 
-    // 数値変換用
     function safeNum(v) {
       const n = Number(v);
       return Number.isFinite(n) ? n : null;
@@ -95,7 +135,6 @@
 
     // CSV読み込み＆ピン立て
     function loadCsvAndRender() {
-      // キャッシュ回避のためタイムスタンプ付与
       const url = CSV_URL + (CSV_URL.includes("?") ? "&" : "?") + "_=" + Date.now();
 
       Papa.parse(url, {
@@ -106,25 +145,22 @@
           const rows = results.data || [];
 
           rows.forEach(row => {
-            // statusチェック
             const status = (row.status || "").trim().toLowerCase();
             if (status && status !== "active") return;
 
-            // 座標チェック
             const lat = safeNum(row.lat);
             const lng = safeNum(row.lng);
             if (lat === null || lng === null) return;
 
-            // データ取得
             const name = (row.name || "").trim() || "名称未設定";
             const address = (row.address || "").trim();
             const articleUrl = (row.article_url || "").trim();
             const imageUrl = (row.image_url || "").trim();
-            const category = (row.category || "").trim(); // カテゴリも取得するように追加
+            const category = (row.category || "").trim();
 
             const marker = L.marker([lat, lng]).addTo(map);
 
-            // Popupの中身を作成
+            // Popup作成
             const div = document.createElement("div");
             div.className = "popup-content";
 
@@ -135,18 +171,17 @@
               img.alt = name;
               img.className = "popup-img";
               img.loading = "lazy";
-              // エラー時の非表示処理
               img.onerror = function() { this.style.display = 'none'; };
               div.appendChild(img);
             }
 
-            // タイトル・住所・カテゴリ
+            // タイトル・住所
             const title = document.createElement("div");
             let titleHtml = "";
             if (category) {
-              titleHtml += `<div class="badge">${category}</div><br>`;
+              titleHtml += `<span class="badge">${category}</span><br>`;
             }
-            titleHtml += `<strong style="font-size:16px;">${name}</strong><div class="small">${address}</div>`;
+            titleHtml += `<strong class="shop-name">${name}</strong><div class="small">${address}</div>`;
             title.innerHTML = titleHtml;
             div.appendChild(title);
 
@@ -157,7 +192,7 @@
               a.href = articleUrl;
               a.target = "_blank";
               a.rel = "noopener";
-              a.textContent = "詳細記事を見る";
+              a.textContent = "詳細を見る";
               div.appendChild(a);
             }
 
@@ -165,17 +200,18 @@
             const b = document.createElement("a");
             b.className = "btn btn-blue";
             b.href = "#";
-            b.textContent = "ここへ行く（現在地から）";
+            b.textContent = "ここへ行く";
             b.addEventListener("click", async (e) => {
               e.preventDefault();
-              b.textContent = "位置情報を取得中...";
+              const originalText = b.textContent;
+              b.textContent = "取得中...";
               try {
                 const origin = await ensureUserLocationOnMap();
                 openGoogleDirections(origin, [lat, lng]);
-                b.textContent = "ここへ行く（現在地から）";
+                b.textContent = originalText;
               } catch (err) {
-                alert("位置情報の取得に失敗しました。端末の設定で位置情報を許可してください。");
-                b.textContent = "位置情報エラー";
+                alert("位置情報が取得できませんでした");
+                b.textContent = "エラー";
               }
             });
             div.appendChild(b);
@@ -183,7 +219,7 @@
             marker.bindPopup(div);
           });
         },
-        error: () => alert("データの読み込みに失敗しました。通信環境を確認してください。")
+        error: () => alert("データ読込エラー")
       });
     }
 
