@@ -11,19 +11,21 @@
 
   <style>
     body { margin:0; font-family: "Helvetica Neue", Arial, "Hiragino Kaku Gothic ProN", "Hiragino Sans", Meiryo, sans-serif; }
-    #map { height: 100vh; width: 100%; }
+    #map { height: 100vh; width: 100%; background-color: #aadaff; /* 海の色に近い背景色を設定 */ }
     
-    /* ポップアップのデザインを少し丸く、可愛く */
+    /* ▼ パステル地図のコントラストを上げる魔法のフィルター ▼ */
+    .high-contrast-tiles {
+      filter: contrast(1.15) saturate(1.3); /* くっきり＆鮮やかに */
+    }
+
+    /* ポップアップのデザイン */
     .leaflet-popup-content-wrapper { border-radius: 12px; box-shadow: 0 3px 10px rgba(0,0,0,0.2); }
     .popup-content { font-size: 14px; line-height: 1.5; color: #444; }
     
-    /* 画像のスタイル */
     .popup-img { width:100%; height:150px; border-radius: 8px; object-fit: cover; display:block; margin:8px 0; background-color: #eee; }
     
-    /* カテゴリバッジ */
-    .badge { display: inline-block; padding: 3px 8px; background-color: #ffab91; color: #fff; border-radius: 10px; font-size: 11px; margin-bottom: 5px; font-weight: bold; letter-spacing: 0.5px; }
+    .badge { display: inline-block; padding: 3px 8px; background-color: #ffab91; color: #fff; border-radius: 10px; font-size: 11px; margin-bottom: 5px; font-weight: bold; }
     
-    /* ボタンのデザイン */
     .btn { 
       display:block; box-sizing: border-box; width: 100%; text-align: center;
       padding:10px; border:1px solid #ddd; background-color: #fff;
@@ -35,40 +37,58 @@
     .btn-blue:hover { background-color: #29b6f6; }
     
     .small { font-size: 11px; color:#888; margin-top: 2px; }
-    
-    /* お店名のスタイル */
     .shop-name { font-size: 16px; color: #333; margin-bottom: 2px; display: block; }
+
+    /* ▼▼▼ アイコンの色分け ▼▼▼ */
+    /* グルメ用（青→オレンジに変更） */
+    img.img-food-icon {
+      filter: hue-rotate(140deg) brightness(1.1); /* 青いピンをオレンジ系に変換 */
+    }
+    /* ランドマーク用（赤） */
+    img.img-landmark-icon {
+      filter: hue-rotate(0deg) saturate(1.5); /* そのままの青、または調整可。ここでは標準マーカーを使用 */
+    }
   </style>
 </head>
 <body>
   <div id="map"></div>
 
   <script>
-    // ▼▼▼ CSV URL ▼▼▼
+    // CSV URL
     const CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRVreCV1xOdZxTpGVS4qVRXnsF3KBeiM7otC6yE7hQWpkkz2l5YNbriQlRNtHan6hRKKwz65hvpnrUR/pub?output=csv";
 
-    // --- 1. 地図のタイル（絵柄）を定義 ---
+    // ▼▼▼ 目印（ランドマーク）の設定 ▼▼▼
+    // ここに追加すれば地図に表示されます
+    const LANDMARKS = [
+      { name: "🏰 首里城公園", lat: 26.2170, lng: 127.7195 },
+      { name: "🐋 美ら海水族館", lat: 26.6943, lng: 127.8779 },
+      { name: "🎡 アメリカンビレッジ", lat: 26.3168, lng: 127.7576 },
+      { name: "✈️ 那覇空港", lat: 26.2048, lng: 127.6458 },
+      { name: "🛍️ ウミカジテラス", lat: 26.1755, lng: 127.6433 }
+    ];
+
+    // --- 1. 地図タイル設定 ---
     
-    // A. パステル（かわいい・デフォルト）
+    // A. パステル改（コントラスト強化）
     const cartoVoyager = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
+      attribution: '© OSM, © CARTO',
+      className: 'high-contrast-tiles', // CSSでくっきりさせる
       maxZoom: 19
     });
 
-    // B. シンプル（白黒・シック）
-    const cartoPositron = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
-      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
-      maxZoom: 19
-    });
-
-    // C. 日本標準（国土地理院・淡色）
-    const gsiPale = L.tileLayer('https://cyberjapandata.gsi.go.jp/xyz/pale/{z}/{x}/{y}.png', {
-      attribution: '<a href="https://maps.gsi.go.jp/development/ichiran.html" target="_blank">国土地理院</a>',
+    // B. ぼうけん地図（航空写真）
+    const esriSatellite = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+      attribution: 'Tiles © Esri',
       maxZoom: 18
     });
 
-    // --- 2. 地図の初期化 ---
-    // ここで layers: [cartoVoyager] を指定しているので、最初は「パステル」が表示されます
+    // C. 日本標準
+    const gsiPale = L.tileLayer('https://cyberjapandata.gsi.go.jp/xyz/pale/{z}/{x}/{y}.png', {
+      attribution: '国土地理院',
+      maxZoom: 18
+    });
+
+    // --- 2. 地図初期化（最初はパステル） ---
     const map = L.map('map', {
       center: [26.2124, 127.6809],
       zoom: 10,
@@ -76,15 +96,15 @@
       tap: false
     });
 
-    // --- 3. レイヤー切り替えコントロールを追加（右上） ---
+    // --- 3. 切り替えボタン（名称変更） ---
     const baseMaps = {
-      "🧡 パステル (かわいい)": cartoVoyager,
-      "🤍 シンプル (シック)": cartoPositron,
-      "💚 日本標準 (見やすい)": gsiPale
+      "🧡 パステル (くっきり)": cartoVoyager,
+      "🦖 ぼうけん地図 (航空写真)": esriSatellite,
+      "💚 日本標準地図": gsiPale
     };
     L.control.layers(baseMaps).addTo(map);
 
-    // --- 4. 沖縄エリア制限 ---
+    // --- 4. エリア制限 ---
     const OKINAWA_BOUNDS = L.latLngBounds([24.0, 122.3], [27.2, 131.4]);
     map.fitBounds(OKINAWA_BOUNDS);
     map.setMaxBounds(OKINAWA_BOUNDS);
@@ -105,7 +125,6 @@
       });
     }
 
-    // マップ上に現在地を表示
     async function ensureUserLocationOnMap() {
       try {
         const latlng = await getCurrentPosition();
@@ -120,7 +139,6 @@
       }
     }
 
-    // Googleマップ経路検索
     function openGoogleDirections(originLatLng, destLatLng) {
       const [olat, olng] = originLatLng;
       const [dlat, dlng] = destLatLng;
@@ -133,9 +151,41 @@
       return Number.isFinite(n) ? n : null;
     }
 
-    // CSV読み込み＆ピン立て
+    // ★ ランドマークを表示する関数 ★
+    function addLandmarks() {
+      // ランドマーク用の赤いアイコン設定
+      // Leaflet標準のマーカー画像をCSSフィルターで赤く見せる
+      const redIcon = new L.Icon({
+        iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
+        shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
+        iconSize: [25, 41],
+        iconAnchor: [12, 41],
+        popupAnchor: [1, -34],
+        shadowSize: [41, 41],
+        className: 'img-landmark-icon' // CSSで赤くするクラス
+      });
+
+      LANDMARKS.forEach(spot => {
+        L.marker([spot.lat, spot.lng], { icon: redIcon })
+          .addTo(map)
+          .bindPopup(`<strong style="color:#d32f2f;">${spot.name}</strong>`);
+      });
+    }
+
+    // CSV読み込み＆お店ピン立て
     function loadCsvAndRender() {
       const url = CSV_URL + (CSV_URL.includes("?") ? "&" : "?") + "_=" + Date.now();
+
+      // お店用のオレンジアイコン設定
+      const foodIcon = new L.Icon({
+        iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
+        shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
+        iconSize: [25, 41],
+        iconAnchor: [12, 41],
+        popupAnchor: [1, -34],
+        shadowSize: [41, 41],
+        className: 'img-food-icon' // CSSでオレンジにするクラス
+      });
 
       Papa.parse(url, {
         download: true,
@@ -158,13 +208,11 @@
             const imageUrl = (row.image_url || "").trim();
             const category = (row.category || "").trim();
 
-            const marker = L.marker([lat, lng]).addTo(map);
+            const marker = L.marker([lat, lng], { icon: foodIcon }).addTo(map);
 
-            // Popup作成
             const div = document.createElement("div");
             div.className = "popup-content";
 
-            // 画像
             if (imageUrl) {
               const img = document.createElement("img");
               img.src = imageUrl;
@@ -175,7 +223,6 @@
               div.appendChild(img);
             }
 
-            // タイトル・住所
             const title = document.createElement("div");
             let titleHtml = "";
             if (category) {
@@ -185,7 +232,6 @@
             title.innerHTML = titleHtml;
             div.appendChild(title);
 
-            // 記事ボタン
             if (articleUrl) {
               const a = document.createElement("a");
               a.className = "btn";
@@ -196,7 +242,6 @@
               div.appendChild(a);
             }
 
-            // 経路検索ボタン
             const b = document.createElement("a");
             b.className = "btn btn-blue";
             b.href = "#";
@@ -210,7 +255,7 @@
                 openGoogleDirections(origin, [lat, lng]);
                 b.textContent = originalText;
               } catch (err) {
-                alert("位置情報が取得できませんでした");
+                alert("位置情報エラー");
                 b.textContent = "エラー";
               }
             });
@@ -223,7 +268,9 @@
       });
     }
 
-    loadCsvAndRender();
+    // 実行
+    addLandmarks();      // 目印を追加
+    loadCsvAndRender();  // お店を追加
   </script>
 </body>
 </html>
